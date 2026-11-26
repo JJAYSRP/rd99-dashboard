@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>RD99 · Solar + BESS</title>
+<style>html,body{margin:0;background:#1b1e24}body{padding:10px}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+</head><body>
+<style>
+#rd99-app{font-family:"Segoe UI",Roboto,system-ui,sans-serif;color:#e6ebf0;background:#1d2127;border-radius:20px;padding:14px 12px 16px;overflow:hidden;-webkit-font-smoothing:antialiased}
+#rd99-app *{box-sizing:border-box}
+.rd-head{display:flex;align-items:flex-start;justify-content:space-between;padding:0 4px}
+.rd-site{font-size:11px;letter-spacing:1.4px;color:#7f8a96;text-transform:uppercase}
+.rd-title{font-size:19px;font-weight:650;margin-top:2px}
+.rd-status{text-align:right}
+.rd-pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:4px 9px;border-radius:7px;background:#272c33;border:1px solid #333a43;color:#aab4bf}
+.rd-pill i{width:6px;height:6px;border-radius:50%;background:#7b8590}
+.rd-pill.ok i{background:#5fd3a0;box-shadow:0 0 6px #5fd3a0}.rd-pill.bad i{background:#e5534b;box-shadow:0 0 6px #e5534b}
+.rd-mode{font-size:10.5px;color:#7f8a96;margin-top:5px}
+.rd-mode b{color:#4dd0e1;font-weight:600}
+
+.rd-hero{position:relative;height:290px;margin:6px -12px 0;background:radial-gradient(120% 80% at 50% 45%,#2b3038 0%,#1d2127 70%)}
+.rd-chip{position:absolute;pointer-events:none;transform:translate(-50%,-100%);margin-top:-6px;white-space:nowrap;text-align:center;text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 10px rgba(0,0,0,.6)}
+.rd-chip.below{transform:translate(-50%,0);margin-top:6px}
+.rd-chip .sw{display:none}
+.rd-chip .l::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--c);margin-right:5px;vertical-align:1px}
+.rd-chip .v{font-size:12.5px;font-weight:650;line-height:1.1}
+.rd-chip .l{font-size:9px;color:#8f9aa6;letter-spacing:.6px;text-transform:uppercase}
+
+.rd-sec{background:#252a31;border:1px solid #2f353e;border-radius:14px;padding:12px;margin-top:10px}
+.rd-sec h5{margin:0 0 8px;font-size:11px;letter-spacing:1.2px;text-transform:uppercase;color:#7f8a96;font-weight:600;display:flex;justify-content:space-between}
+.rd-sec h5 span{letter-spacing:0;text-transform:none;color:#6f7a86;font-weight:400}
+
+/* energy balance */
+.rd-eq{display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:10px;color:#8f9aa6}
+.rd-eq .t{flex:1;text-align:center}
+.rd-eq .t b{display:block;font-size:14px;color:#eef2f5;font-weight:650}
+.rd-eq .op{color:#5b6572;font-size:13px}
+.rd-bar{display:flex;height:8px;border-radius:5px;overflow:hidden;background:#1d2127;margin-top:9px}
+.rd-bar div{height:100%;transition:width .6s}
+
+/* peak control */
+.rd-peak{display:flex;gap:12px;align-items:center}
+.rd-peak .m{flex:1}
+.rd-peak .big{font-size:24px;font-weight:650;line-height:1}
+.rd-peak .big small{font-size:12px;color:#8f9aa6;font-weight:500}
+.rd-track{position:relative;height:10px;border-radius:6px;background:#1d2127;margin:10px 0 6px}
+.rd-track .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px;background:linear-gradient(90deg,#3f8fd8,#4dd0e1)}
+.rd-track .tgt{position:absolute;top:-4px;bottom:-4px;width:2px;background:#e0b44a}
+.rd-peak .row{display:flex;justify-content:space-between;font-size:10.5px;color:#8f9aa6}
+.rd-peak .row b{color:#e0b44a;font-weight:600}
+.rd-ring{width:78px;height:78px;flex:none;position:relative}
+.rd-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.rd-ring .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.rd-ring .c b{font-size:17px;font-weight:650}.rd-ring .c small{font-size:9px;color:#8f9aa6;letter-spacing:.8px}
+
+/* AI card */
+.rd-ai{display:flex;gap:10px;align-items:flex-start}
+.rd-ai .ic{width:34px;height:34px;flex:none;border-radius:10px;background:#1f3a40;display:flex;align-items:center;justify-content:center}
+.rd-ai .ic svg{width:18px;height:18px;stroke:#4dd0e1;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.rd-ai .cmd{font-size:14.5px;font-weight:650}
+.rd-ai .why{font-size:11.5px;color:#9aa5b1;margin-top:3px;line-height:1.35}
+.rd-ai .meta{font-size:10px;color:#6f7a86;margin-top:6px}
+
+/* today */
+.rd-today{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.rd-today div{text-align:left;padding:2px 2px}
+.rd-today b{display:block;font-size:15px;font-weight:650}
+.rd-today small{display:block;font-size:10px;color:#8f9aa6;margin-top:2px}
+
+/* links */
+.rd-links{display:flex;gap:8px;margin-top:10px}
+.rd-links a{flex:1;text-align:center;font-size:11.5px;color:#c9d2dc;text-decoration:none;padding:9px 0;border-radius:10px;background:#252a31;border:1px solid #2f353e}
+.rd-foot{font-size:9.5px;color:#5f6a76;text-align:center;margin-top:10px}
+</style>
+
+<div id="rd99-app">
+  <div class="rd-head">
+    <div><div class="rd-site">KU · Innowork · RD99</div><div class="rd-title">Data Center Energy</div></div>
+    <div class="rd-status"><div class="rd-pill"><i></i><span data-v="link">No data</span></div><div class="rd-mode">Control: <b data-v="mode">AI auto</b></div></div>
+  </div>
+
+  <div class="rd-hero">
+    <div class="rd-chip" data-k="pv" style="--c:#5fd3a0"><div class="sw"></div><div><div class="v" data-v="pv">— kW</div><div class="l">Solar</div></div></div>
+    <div class="rd-chip" data-k="load" style="--c:#e6ebf0"><div class="sw"></div><div><div class="v" data-v="load">— kW</div><div class="l">IT + cooling load</div></div></div>
+    <div class="rd-chip" data-k="grid" style="--c:#f2b84b"><div class="sw"></div><div><div class="v" data-v="grid">— kW</div><div class="l">Grid import</div></div></div>
+    <div class="rd-chip below" data-k="bess" style="--c:#5aa9f5"><div class="sw"></div><div><div class="v" data-v="bess">— kW</div><div class="l" data-v="bessState">BESS · standby</div></div></div>
+  </div>
+
+  <div class="rd-sec">
+    <h5>Where the load is supplied from <span data-v="ts">—</span></h5>
+    <div class="rd-eq">
+      <div class="t"><b data-v="eqGrid">—</b>Grid</div><div class="op">+</div>
+      <div class="t"><b data-v="eqPv">—</b>Solar</div><div class="op">+</div>
+      <div class="t"><b data-v="eqBess">—</b>BESS</div><div class="op">=</div>
+      <div class="t"><b data-v="eqLoad">—</b>Load</div>
+    </div>
+    <div class="rd-bar"><div data-b="grid" style="width:0;background:#f2b84b"></div><div data-b="pv" style="width:0;background:#5fd3a0"></div><div data-b="bess" style="width:0;background:#5aa9f5"></div></div>
+  </div>
+
+  <div class="rd-sec">
+    <h5>Peak control</h5>
+    <div class="rd-peak">
+      <div class="m">
+        <div class="big"><span data-v="gridBig">—</span> <small>kW from grid</small></div>
+        <div class="rd-track"><div class="fill" data-v="gridFill" style="width:0"></div><div class="tgt" data-v="tgtMark" style="left:80%"></div></div>
+        <div class="row"><span>Target <b data-v="target">— kW</b></span><span data-v="headroom">Headroom —</span></div>
+      </div>
+      <div class="rd-ring">
+        <svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="33" fill="none" stroke="#1d2127" stroke-width="8"/><circle data-v="socArc" cx="40" cy="40" r="33" fill="none" stroke="#5aa9f5" stroke-width="8" stroke-linecap="round" stroke-dasharray="0 207.3"/></svg>
+        <div class="c"><b data-v="soc">—%</b><small>SOC</small></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="rd-sec">
+    <h5>AI decision <span data-v="aiTime">—</span></h5>
+    <div class="rd-ai">
+      <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="5"/><path d="M12 9.5v2.5l1.8 1.2"/></svg></div>
+      <div><div class="cmd" data-v="aiCmd">Waiting for PC2</div><div class="why" data-v="aiWhy">The Edge AI on PC2 decides the BESS set-point every cycle; its latest command and reason appear here.</div><div class="meta" data-v="aiMeta">—</div></div>
+    </div>
+  </div>
+
+  <div class="rd-sec">
+    <h5>Today</h5>
+    <div class="rd-today">
+      <div><b data-t="shaved">—</b><small>Peak cut (kW)</small></div>
+      <div><b data-t="pvE">—</b><small>Solar (kWh)</small></div>
+      <div><b data-t="saved">—</b><small>Saved (฿)</small></div>
+    </div>
+  </div>
+
+  <div class="rd-links">
+    <a target="_top" href="https://dashboard-wiseiot-ensaas.practice.cloud.advantech.com/d/rd99-mobile/rd99-mobile?orgId=45">Trends</a>
+    <a target="_top" href="https://dashboard-wiseiot-ensaas.practice.cloud.advantech.com/d/rd99-mobile/rd99-mobile?orgId=45">Events</a>
+    <a target="_top" href="https://dashboard-wiseiot-ensaas.practice.cloud.advantech.com/d/rd99-energy/rd99-energy-monitor?orgId=45">Full 3D</a>
+  </div>
+  <div class="rd-foot">PowerFactory twin → ESP32 / RS-485 → Advantech ECU-1251D → WISE-IoT</div>
+</div>
+
+<script type="module">
+// RD99 mobile hero — three.js scene + HTML callouts. Runs inside a Grafana text panel.
+(async function () {
+  const root = document.getElementById('rd99-app');
+  if (!root || root.dataset.init === '1') return;
+  root.dataset.init = '1';
+
+  root.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', e => {
+    e.preventDefault();
+    const key = a.dataset.go.toLowerCase();
+    const t = [...document.querySelectorAll('.panel-title-text, .panel-title')].find(x => x.textContent.toLowerCase().includes(key));
+    if (t) t.closest('.panel-container, .panel-wrapper, .react-grid-item')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }));
+
+  const THREE = await import('three');
+  const { RoundedBoxGeometry } = await import('three/addons/geometries/RoundedBoxGeometry.js');
+  const { RoomEnvironment } = await import('three/addons/environments/RoomEnvironment.js');
+
+  const host = root.querySelector('.rd-hero');
+  const W = () => host.clientWidth, H = () => host.clientHeight;
+
+  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(W(), H());
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.domElement.style.cssText = 'position:absolute;inset:0;width:100%;height:100%';
+  host.prepend(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new RoomEnvironment(renderer), 0.04).texture;
+
+  const camera = new THREE.PerspectiveCamera(26, W() / H(), 0.1, 200);
+  camera.position.set(18.2, 15.6, 21.4);
+  const target = new THREE.Vector3(-0.3, 0.2, 0.3);
+  const FACE = Math.atan2(camera.position.x - (-5.4), camera.position.z - 2.45); // yaw so the PV field faces the viewer
+  camera.lookAt(target);
+
+  // ---------- lights ----------
+  scene.add(new THREE.HemisphereLight(0xcfd8e6, 0x1a1d23, 0.55));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+  sun.position.set(8, 14, 6);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 12, bottom: -12, near: 1, far: 40 });
+  sun.shadow.radius = 4; sun.shadow.bias = -0.0004;
+  scene.add(sun);
+
+  // ---------- materials ----------
+  const M = {
+    slab: new THREE.MeshStandardMaterial({ color: 0x30353d, roughness: 0.92, metalness: 0.02 }),
+    roof: new THREE.MeshStandardMaterial({ color: 0x1a1c20, roughness: 0.6, metalness: 0.3 }),
+    pad: new THREE.MeshStandardMaterial({ color: 0x272b31, roughness: 0.9 }),
+    shell: new THREE.MeshStandardMaterial({ color: 0x15171b, roughness: 0.5, metalness: 0.3 }),
+    trim: new THREE.MeshStandardMaterial({ color: 0x272b31, roughness: 0.45, metalness: 0.45 }),
+    gun: new THREE.MeshStandardMaterial({ color: 0x4a515b, roughness: 0.38, metalness: 0.65 }),
+    fin: new THREE.MeshStandardMaterial({ color: 0x2c3138, roughness: 0.5, metalness: 0.6 }),
+    amber: new THREE.MeshPhysicalMaterial({ color: 0xd9962f, roughness: 0.18, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05 }),
+    amberGlow: new THREE.MeshStandardMaterial({ color: 0xf2b84b, emissive: 0xf2b84b, emissiveIntensity: 2.0 }),
+    glass: new THREE.MeshPhysicalMaterial({ color: 0x9fb4c8, roughness: 0.05, metalness: 0, transmission: 0.0, transparent: true, opacity: 0.18, envMapIntensity: 1.2 }),
+    rack: new THREE.MeshStandardMaterial({ color: 0x1c2026, roughness: 0.6, metalness: 0.3 }),
+    led: new THREE.MeshStandardMaterial({ color: 0x4dd0e1, emissive: 0x4dd0e1, emissiveIntensity: 2.2 }),
+    warm: new THREE.MeshStandardMaterial({ color: 0xffe2b0, emissive: 0xffd9a0, emissiveIntensity: 1.2 }),
+    pv: new THREE.MeshPhysicalMaterial({ color: 0x123563, roughness: 0.5, metalness: 0.1, clearcoat: 0.25, clearcoatRoughness: 0.3, envMapIntensity: 0.15 }),
+    pvFrame: new THREE.MeshStandardMaterial({ color: 0x2c3138, roughness: 0.35, metalness: 0.8 }),
+    white: new THREE.MeshPhysicalMaterial({ color: 0xeef1f4, roughness: 0.35, metalness: 0.0, clearcoat: 0.6, clearcoatRoughness: 0.2 }),
+    grey: new THREE.MeshStandardMaterial({ color: 0x9aa3ad, roughness: 0.45, metalness: 0.5 }),
+    steel: new THREE.MeshStandardMaterial({ color: 0x6e7782, roughness: 0.4, metalness: 0.7 }),
+    pole: new THREE.MeshStandardMaterial({ color: 0x3a3f46, roughness: 0.55, metalness: 0.35 }),
+    insul: new THREE.MeshStandardMaterial({ color: 0x8fb8c9, roughness: 0.2, metalness: 0.1 }),
+    wire: new THREE.MeshStandardMaterial({ color: 0x1a1d22, roughness: 0.5 }),
+    fan: new THREE.MeshStandardMaterial({ color: 0x0f1114, roughness: 0.8 }),
+    cool: new THREE.MeshStandardMaterial({ color: 0x30353c, roughness: 0.4, metalness: 0.6 }),
+    ring: new THREE.MeshStandardMaterial({ color: 0x4b525c, roughness: 0.35, metalness: 0.7 }),
+    blade: new THREE.MeshStandardMaterial({ color: 0x7a838e, roughness: 0.4, metalness: 0.6 }),
+  };
+
+  const rbox = (w, h, d, r, mat, x, y, z, seg = 4) => {
+    const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, seg, r), mat);
+    m.position.set(x, y + h / 2, z); m.castShadow = m.receiveShadow = true; scene.add(m); return m;
+  };
+  const cyl = (rt, rb, h, mat, x, y, z, seg = 24) => {
+    const m = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), mat);
+    m.position.set(x, y + h / 2, z); m.castShadow = m.receiveShadow = true; scene.add(m); return m;
+  };
+
+  // ---------- ground ----------
+  { const catcher = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.ShadowMaterial({ opacity: 0.35 })); catcher.rotation.x = -Math.PI / 2; catcher.position.y = 0.001; catcher.receiveShadow = true; scene.add(catcher); } // no base: shadows only
+  rbox(6.6, 0.06, 4.6, 0.03, M.pad, 0, 0, 0);        // DC pad
+  rbox(3.8, 0.06, 1.7, 0.03, M.pad, 3.85, 0, 3.75);  // BESS pad
+  rbox(3.4, 0.06, 3.2, 0.03, M.pad, 5.8, 0, -0.6);   // substation pad
+
+  // ---------- data center (open-front shell so the lit hall shows) ----------
+  const DC = { w: 5.6, h: 2.5, d: 3.6, x: 0, z: -0.1 };
+  const g0 = 0.06;
+  rbox(DC.w, 0.14, DC.d, 0.05, M.trim, DC.x, g0, DC.z);                                       // floor
+  rbox(DC.w, 0.22, DC.d, 0.08, M.roof, DC.x, g0 + DC.h, DC.z);                                // roof
+  rbox(DC.w, DC.h, 0.18, 0.06, M.shell, DC.x, g0, DC.z - DC.d / 2 + 0.09);                    // back wall
+  rbox(0.2, DC.h, DC.d, 0.06, M.shell, DC.x - DC.w / 2 + 0.1, g0, DC.z);                      // left wall
+  rbox(0.2, DC.h, DC.d, 0.06, M.shell, DC.x + DC.w / 2 - 0.1, g0, DC.z);                      // right wall
+  const glass = new THREE.Mesh(new THREE.BoxGeometry(DC.w - 0.4, DC.h, 0.04), M.glass);
+  glass.position.set(DC.x, g0 + DC.h / 2, DC.z + DC.d / 2 - 0.05); scene.add(glass);
+  for (let i = 1; i < 6; i++) rbox(0.05, DC.h, 0.06, 0.02, M.trim, DC.x - DC.w / 2 + 0.2 + i * (DC.w - 0.4) / 6, g0, DC.z + DC.d / 2 - 0.05); // mullions
+  // rack rows
+  for (let row = 0; row < 2; row++) {
+    for (let i = 0; i < 7; i++) {
+      const x = DC.x - 2.2 + i * 0.72, z = DC.z - 0.75 + row * 1.25;
+      rbox(0.6, 1.75, 0.8, 0.04, M.rack, x, g0 + 0.14, z);
+      const s = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.4, 0.02), M.led);
+      s.position.set(x - 0.2, g0 + 0.14 + 0.95, z + 0.41); scene.add(s);
+      const s2 = s.clone(); s2.position.x = x + 0.2; scene.add(s2);
+    }
+  }
+  // ceiling light strips + warm interior glow
+  for (let i = 0; i < 3; i++) { const l = new THREE.Mesh(new THREE.BoxGeometry(DC.w - 0.8, 0.03, 0.08), M.warm); l.position.set(DC.x, g0 + DC.h - 0.06, DC.z - 1 + i); scene.add(l); }
+  const hall = new THREE.PointLight(0xffd8a8, 6, 7, 1.6); hall.position.set(DC.x, g0 + DC.h - 0.5, DC.z + 0.4); scene.add(hall);
+  const cool = new THREE.PointLight(0x4dd0e1, 3, 5, 2); cool.position.set(DC.x, g0 + 1, DC.z + 0.9); scene.add(cool);
+
+  // rooftop: PV (front) + chillers (back)
+  const roofY = g0 + DC.h + 0.22;
+  // PV module texture: dark cells, thin silver grid lines, busbars
+  const pvTex = (() => {
+    const cv = document.createElement('canvas'); cv.width = 192; cv.height = 320; const g = cv.getContext('2d');
+    g.fillStyle = '#0a0f17'; g.fillRect(0, 0, 192, 320);
+    const cols = 6, rows = 10, pad = 6, cw = (192 - pad * 2) / cols, ch = (320 - pad * 2) / rows;
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const x = pad + c * cw + 1, y = pad + r * ch + 1, w = cw - 2, h = ch - 2;
+      const gr = g.createLinearGradient(x, y, x + w, y + h); gr.addColorStop(0, '#13233d'); gr.addColorStop(1, '#0b1628');
+      g.fillStyle = gr; g.fillRect(x, y, w, h);
+      g.fillStyle = 'rgba(160,185,220,.10)'; g.fillRect(x + w * 0.33, y, 1, h); g.fillRect(x + w * 0.66, y, 1, h);
+    }
+    const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t;
+  })();
+  const pvFace = new THREE.MeshPhysicalMaterial({ map: pvTex, roughness: 0.32, metalness: 0.2, clearcoat: 0.8, clearcoatRoughness: 0.1, envMapIntensity: 0.6 });
+  // one module (portrait): w across, d down-slope
+  const module = (parent, x, z, w = 0.44, d = 0.74) => {
+    const f = new THREE.Mesh(new THREE.BoxGeometry(w, 0.035, d), M.pvFrame); f.position.set(x, 0, z); f.castShadow = true; parent.add(f);
+    const c = new THREE.Mesh(new THREE.PlaneGeometry(w - 0.025, d - 0.025), pvFace); c.rotation.x = -Math.PI / 2; c.position.set(x, 0.019, z); parent.add(c);
+  };
+  // a mounting table: nCols x nRows modules on a tilted rack with rails and posts; faces +z of its parent
+  const pvTable = (parent, cz, nCols, nRows, tilt, h0) => {
+    const w = 0.44, d = 0.74, gap = 0.018;
+    const W = nCols * (w + gap), D = nRows * (d + gap);
+    const deck = new THREE.Group(); deck.position.set(0, h0, cz); deck.rotation.x = tilt; parent.add(deck);
+    for (let r = 0; r < nRows; r++) for (let c = 0; c < nCols; c++) module(deck, -W / 2 + w / 2 + c * (w + gap), -D / 2 + d / 2 + r * (d + gap));
+    for (const rz of [-D * 0.28, D * 0.28]) { const rail = new THREE.Mesh(new THREE.BoxGeometry(W + 0.1, 0.05, 0.05), M.steel); rail.position.set(0, -0.045, rz); rail.castShadow = true; deck.add(rail); }
+    const sinT = Math.sin(tilt), cosT = Math.cos(tilt), span = D * 0.28;
+    for (let k = 0; k <= 3; k++) {
+      const x = -W / 2 + 0.2 + k * (W - 0.4) / 3;
+      for (const sgn of [1, -1]) { // front (+z, low) and back (-z, high) legs
+        const top = h0 - 0.07 - sgn * span * sinT, zz = cz + sgn * span * cosT;
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, top, 10), M.steel); leg.position.set(x, top / 2, zz); leg.castShadow = true; parent.add(leg);
+      }
+      const brace = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.03, span * 2 * cosT), M.steel); brace.position.set(x, 0.18, cz); parent.add(brace);
+    }
+  };
+  // rooftop cooling: rows of dry-cooler units, each with spinning fans
+  const fans = [];
+  const fanUnit = (x, z) => {
+    rbox(0.95, 0.34, 0.95, 0.08, M.cool, x, roofY, z);                       // square housing
+    const fx = x, fy = roofY + 0.35, R = 0.36;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R, 0.035, 12, 40), M.ring); ring.rotation.x = Math.PI / 2; ring.position.set(fx, fy + 0.01, z); scene.add(ring);
+    const well = new THREE.Mesh(new THREE.CylinderGeometry(R - 0.01, R - 0.01, 0.02, 40), M.fan); well.position.set(fx, fy - 0.005, z); scene.add(well);
+    const rotor = new THREE.Group(); rotor.position.set(fx, fy + 0.014, z); scene.add(rotor);
+    for (let b = 0; b < 5; b++) { const bl = new THREE.Mesh(new THREE.BoxGeometry(0.29, 0.01, 0.1), M.blade); bl.position.x = 0.16; bl.rotation.x = 0.35; const arm = new THREE.Group(); arm.rotation.y = b * Math.PI * 2 / 5; arm.add(bl); rotor.add(arm); }
+    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.035, 18), M.trim); rotor.add(hub);
+    for (const a of [0, Math.PI / 2]) { const g = new THREE.Mesh(new THREE.BoxGeometry(2 * R, 0.012, 0.018), M.trim); g.rotation.y = a; g.position.set(fx, fy + 0.035, z); scene.add(g); } // guard
+    rotor.userData.speed = 5 + Math.random() * 2; fans.push(rotor);
+  };
+  for (let r = 0; r < 2; r++) for (let i = 0; i < 2; i++) fanUnit(DC.x - 1.1 + i * 2.2, DC.z - 0.75 + r * 1.45);
+
+  // ---------- PV field: aligned with the DC, panels facing +x (toward the grid side) ----------
+  const field = new THREE.Group(); field.position.set(-5.4, 0, 2.75); field.rotation.y = Math.PI / 2; scene.add(field);
+  { const p = new THREE.Mesh(new RoundedBoxGeometry(4.3, 0.06, 3.9, 2, 0.03), M.pad); p.position.y = 0.03; p.receiveShadow = true; field.add(p); }
+  pvTable(field, -1.05, 8, 2, 0.34, 0.55);
+  pvTable(field, 0.85, 8, 2, 0.34, 0.55);
+  { const cb = new THREE.Mesh(new RoundedBoxGeometry(0.3, 0.42, 0.18, 2, 0.04), M.grey); cb.position.set(-1.95, 0.27, 1.75); cb.castShadow = true; field.add(cb); }
+
+  // ---------- BESS (white cabinets, teal light strip) ----------
+  const bess = [];
+  for (let i = 0; i < 3; i++) {
+    const x = 2.7 + i * 0.92;
+    const c = rbox(0.78, 1.55, 0.7, 0.12, M.white, x, 0.06, 3.7);
+    const strip = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.0, 0.02), M.led); strip.position.set(x + 0.25, 0.06 + 0.95, 3.7 + 0.36); scene.add(strip);
+    const dot = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.02, 20), M.led); dot.rotation.x = Math.PI / 2; dot.position.set(x - 0.1, 0.06 + 1.25, 3.7 + 0.36); scene.add(dot);
+    bess.push(c);
+  }
+  rbox(0.7, 1.1, 0.6, 0.1, M.grey, 5.35, 0.06, 3.75); // PCS
+
+  // ---------- substation: transformer + one pole ----------
+  const tx = 5.6, tz = -0.4;
+  rbox(1.5, 1.1, 1.0, 0.1, M.gun, tx, 0.06, tz);
+  { const lamp = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.02), M.amberGlow); lamp.position.set(tx, 0.06 + 0.95, tz + 0.51); scene.add(lamp); }
+  for (let i = 0; i < 7; i++) rbox(0.05, 0.9, 0.16, 0.02, M.fin, tx - 0.6 + i * 0.2, 0.12, tz + 0.58);
+  const bush = [];
+  for (let i = 0; i < 3; i++) { const b = cyl(0.06, 0.08, 0.38, M.amber, tx - 0.4 + i * 0.4, 1.16, tz - 0.1); bush.push(new THREE.Vector3(tx - 0.4 + i * 0.4, 1.56, tz - 0.1)); }
+  const px = 6.6, pz = -2.1;
+  cyl(0.09, 0.12, 4.2, M.pole, px, 0.06, pz, 16);
+  rbox(1.7, 0.1, 0.12, 0.03, M.pole, px, 3.9, pz);
+  const tops = [];
+  for (let i = 0; i < 3; i++) { cyl(0.05, 0.07, 0.22, M.amber, px - 0.7 + i * 0.7, 4.0, pz); tops.push(new THREE.Vector3(px - 0.7 + i * 0.7, 4.22, pz)); }
+  const sag = (a, b, s) => { const mid = a.clone().lerp(b, 0.5); mid.y -= s; return new THREE.QuadraticBezierCurve3(a, mid, b); };
+  const tube = (curve, r, mat) => { const m = new THREE.Mesh(new THREE.TubeGeometry(curve, 40, r, 6), mat); m.castShadow = true; scene.add(m); return m; };
+  for (let i = 0; i < 3; i++) {
+    tube(sag(tops[i], bush[i], 0.35), 0.015, M.wire);
+    tube(sag(tops[i], new THREE.Vector3(tops[i].x + 3.2, 4.5, pz - 5), 0.6), 0.015, M.wire);
+  }
+
+  // ---------- energy flow lines ----------
+  const flowMat = (c) => new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.6, roughness: 0.3 });
+  const flows = [
+    { id: 'pv', color: 0x5fd3a0, pts: [[-3.4, 3.3], [-1.3, 3.3], [-1.3, 1.82]] },
+    { id: 'bess', color: 0x5aa9f5, pts: [[2.7, 4.06], [2.7, 4.4], [0.9, 4.4], [0.9, 1.82]] },
+    { id: 'grid', color: 0xf2b84b, pts: [[4.85, -0.4], [3.4, -0.4], [3.4, 0.6], [2.88, 0.6]] },
+  ].map(f => {
+    const v = f.pts.map(p => new THREE.Vector3(p[0], 0.1, p[1]));
+    const path = new THREE.CurvePath(); for (let i = 0; i < v.length - 1; i++) path.add(new THREE.LineCurve3(v[i], v[i + 1]));
+    const cable = new THREE.MeshStandardMaterial({ color: 0x59616c, roughness: 0.55, metalness: 0.2 });
+    const m = new THREE.Mesh(new THREE.TubeGeometry(path, 120, 0.028, 8), cable); m.castShadow = true; scene.add(m);
+    for (const q of v.slice(1, -1)) { const j = new THREE.Mesh(new THREE.SphereGeometry(0.028, 10, 8), cable); j.position.copy(q); scene.add(j); }
+    const dots = []; for (let k = 0; k < 6; k++) { const d = new THREE.Mesh(new THREE.SphereGeometry(0.058, 14, 10), flowMat(f.color)); scene.add(d); dots.push(d); }
+    return { ...f, path, dots, dir: 1, on: true };
+  });
+
+  // ---------- callout anchors ----------
+  const anchors = {
+    pv: new THREE.Vector3(-5.4, 1.45, 2.75),
+    load: new THREE.Vector3(0, roofY + 0.75, DC.z - 0.2),
+    grid: new THREE.Vector3(px - 0.6, 4.6, pz),
+    bess: new THREE.Vector3(3.5, 0, 5.1),
+  };
+  const callouts = {};
+  root.querySelectorAll('.rd-chip').forEach(el => callouts[el.dataset.k] = el);
+
+  // ---------- data ----------
+  const D = window.RD99 = window.RD99 || { load: null, pv: null, grid: null, bess: null, soc: null, link: null, target: null, mode: null, ai: null, today: {} };
+  const fmt = v => v == null || isNaN(v) ? '—' : Math.round(v).toLocaleString('en-US');
+  const $ = k => root.querySelector(`[data-v="${k}"]`);
+  const set = (k, t) => { const e = $(k); if (e) e.textContent = t; };
+  const paint = () => {
+    set('pv', fmt(D.pv) + ' kW'); set('load', fmt(D.load) + ' kW'); set('grid', fmt(D.grid) + ' kW');
+    set('bess', (D.bess == null ? '—' : (D.bess > 0 ? '+' : '') + fmt(D.bess)) + ' kW');
+    const st = D.bess == null ? 'standby' : D.bess > 5 ? 'discharging' : D.bess < -5 ? 'charging' : 'idle';
+    set('bessState', 'BESS · ' + st);
+    const pill = root.querySelector('.rd-pill'); pill.className = 'rd-pill ' + (D.link === 1 ? 'ok' : D.link === 0 ? 'bad' : '');
+    set('link', D.link === 1 ? 'ECU online' : D.link === 0 ? 'Comm loss' : 'No data');
+    if (D.mode) set('mode', D.mode);
+    // energy balance
+    set('eqGrid', fmt(D.grid)); set('eqPv', fmt(D.pv)); set('eqBess', fmt(D.bess)); set('eqLoad', fmt(D.load));
+    const tot = Math.max(1, (D.grid || 0) + Math.max(0, D.pv || 0) + Math.max(0, D.bess || 0));
+    const w = k => (Math.max(0, D[k] || 0) / tot * 100).toFixed(1) + '%';
+    root.querySelector('[data-b="grid"]').style.width = D.grid == null ? '0' : w('grid');
+    root.querySelector('[data-b="pv"]').style.width = D.pv == null ? '0' : w('pv');
+    root.querySelector('[data-b="bess"]').style.width = D.bess == null ? '0' : w('bess');
+    // peak control
+    set('gridBig', fmt(D.grid)); set('target', fmt(D.target) + ' kW');
+    const scale = Math.max(D.target || 0, D.grid || 0, D.load || 0) * 1.15 || 1;
+    $('gridFill').style.width = D.grid == null ? '0' : Math.min(100, D.grid / scale * 100) + '%';
+    $('tgtMark').style.left = D.target == null ? '80%' : Math.min(100, D.target / scale * 100) + '%';
+    set('headroom', D.target == null || D.grid == null ? 'Headroom —' : (D.target - D.grid >= 0 ? 'Headroom ' + fmt(D.target - D.grid) + ' kW' : 'Over by ' + fmt(D.grid - D.target) + ' kW'));
+    set('soc', D.soc == null ? '—%' : Math.round(D.soc) + '%');
+    $('socArc').setAttribute('stroke-dasharray', ((D.soc || 0) / 100 * 207.3).toFixed(1) + ' 207.3');
+    // AI
+    if (D.ai) { set('aiCmd', D.ai.cmd); set('aiWhy', D.ai.why); set('aiMeta', D.ai.meta || ''); set('aiTime', D.ai.time || ''); }
+    const T = D.today || {}; const tset = (k, v) => { const e = root.querySelector(`[data-t="${k}"]`); if (e) e.textContent = v; };
+    tset('shaved', fmt(T.shaved)); tset('pvE', fmt(T.pvE)); tset('saved', fmt(T.saved));
+    flows[0].on = (D.pv || 0) > 1; flows[1].on = Math.abs(D.bess || 0) > 5; flows[1].dir = (D.bess || 0) >= 0 ? 1 : -1; flows[2].on = (D.grid || 0) > 1;
+    if (D.pv == null && D.grid == null) flows.forEach(f => f.on = true);
+  };
+  if (/[?&]demo=1/.test(location.search)) Object.assign(D, { load: 4397, pv: 610, grid: 3400, bess: 387, soc: 64, link: 1, target: 3400, mode: 'AI auto',
+    ai: { cmd: 'Discharge BESS 387 kW', why: 'Load is 997 kW above the 3,400 kW grid target; solar covers 610 kW, BESS covers the rest.', meta: 'Decided in 0.07 s · SEQ 1284', time: '14:05:12' },
+    today: { shaved: 1020, pvE: 3850, saved: 18400 } });
+  window.RD99_paint = paint; paint();
+
+  // ---------- loop ----------
+  const v = new THREE.Vector3();
+  const place = () => {
+    const w = W(), h = H();
+    for (const k in anchors) {
+      const el = callouts[k]; if (!el) continue;
+      v.copy(anchors[k]).project(camera);
+      el.style.left = ((v.x + 1) / 2 * w) + 'px';
+      el.style.top = ((1 - v.y) / 2 * h) + 'px';
+    }
+  };
+  const resize = () => { const w = W(), h = H(); if (!w || !h) return; renderer.setSize(w, h); camera.aspect = w / h; camera.fov = w / h < 1.05 ? 33 : 27; camera.updateProjectionMatrix(); };
+  new ResizeObserver(resize).observe(host); resize();
+
+  const clock = new THREE.Clock();
+  renderer.setAnimationLoop(() => {
+    const t = clock.getElapsedTime();
+    flows.forEach(f => f.dots.forEach((d, k) => {
+      d.visible = f.on;
+      if (!f.on) return;
+      let u = (t * 0.22 + k / f.dots.length) % 1; if (f.dir < 0) u = 1 - u;
+      f.path.getPointAt(u, d.position); d.position.y += 0.02;
+    }));
+    M.led.emissiveIntensity = 1.9 + 0.4 * Math.sin(t * 2.2);
+    const dt = clock.getDelta ? 0.016 : 0.016; fans.forEach(f => f.rotation.y += f.userData.speed * dt);
+    renderer.render(scene, camera);
+    place();
+  });
+})();
+
+</script>
+</body></html>
