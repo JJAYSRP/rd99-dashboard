@@ -82,6 +82,25 @@
   .rd-links{display:none}
   .rd-chip .v{font-size:15px}.rd-chip .l{font-size:10px}
 }
+.rd-tag{display:none;letter-spacing:.4px;text-transform:uppercase;font-size:9px;color:#e0b44a;border:1px solid rgba(224,180,74,.45);border-radius:5px;padding:1px 6px}
+#rd99-app.sample .rd-tag{display:inline-block}
+.rd-lower svg{width:100%;display:block}
+#rd-chart{height:230px}#rd-soc{height:110px}
+.rd-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;font-size:10.5px;color:#9aa5b1}
+.rd-legend span::before{content:"";display:inline-block;width:14px;height:2px;background:var(--c);vertical-align:3px;margin-right:5px}
+.rd-legend span.dash::before{background:repeating-linear-gradient(90deg,var(--c) 0 4px,transparent 4px 7px)}
+.rd-legend span.area::before{height:8px;vertical-align:0;opacity:.45}
+.rd-list{display:flex;flex-direction:column;gap:7px}
+.rd-row{display:flex;gap:9px;align-items:flex-start;font-size:11.5px;line-height:1.35}
+.rd-row time{flex:none;width:40px;color:#6f7a86;font-variant-numeric:tabular-nums}
+.rd-row b{font-weight:600;color:#e6ebf0}
+.rd-row .d{flex:none;width:7px;height:7px;border-radius:50%;margin-top:5px;background:var(--c)}
+.rd-row small{display:block;color:#8f9aa6;font-size:10.5px}
+#rd99-app.sample .rd-pill span{color:#e0b44a}#rd99-app.sample .rd-pill i{background:#e0b44a;box-shadow:0 0 6px #e0b44a}
+@media (min-width:680px){
+  .rd-lower{display:grid;grid-template-columns:minmax(0,1.8fr) minmax(290px,1fr);column-gap:18px;margin-top:4px}
+  .rd-lower .rd-sec{margin-top:14px}
+}
 </style>
 
 <div id="rd99-app">
@@ -142,12 +161,16 @@
     </div>
   </div>
 
-  <div class="rd-links">
-    <a target="_top" href="https://dashboard-wiseiot-ensaas.practice.cloud.advantech.com/d/rd99-mobile/rd99-mobile?orgId=45">Trends</a>
-    <a target="_top" href="https://dashboard-wiseiot-ensaas.practice.cloud.advantech.com/d/rd99-mobile/rd99-mobile?orgId=45">Events</a>
-    <a target="_top" href="https://dashboard-wiseiot-ensaas.practice.cloud.advantech.com/d/rd99-energy/rd99-energy-monitor?orgId=45">Full 3D</a>
   </div>
   </div>
+  <div class="rd-lower">
+    <div class="rd-sec rd-trend"><h5>Today · load, grid &amp; solar <span class="rd-tag">sample data</span></h5>
+      <svg id="rd-chart" viewBox="0 0 640 230" preserveAspectRatio="none"></svg>
+      <div class="rd-legend"><span style="--c:#e6ebf0">Load</span><span style="--c:#f2b84b">Grid import</span><span style="--c:#5fd3a0">Solar</span><span class="dash" style="--c:#f2b84b">Peak target</span><span class="area" style="--c:#5aa9f5">BESS discharge</span></div>
+    </div>
+    <div class="rd-sec"><h5>AI dispatch log <span class="rd-tag">sample data</span></h5><div id="rd-ailog" class="rd-list"></div></div>
+    <div class="rd-sec"><h5>BESS state of charge <span class="rd-tag">sample data</span></h5><svg id="rd-soc" viewBox="0 0 640 110" preserveAspectRatio="none"></svg></div>
+    <div class="rd-sec"><h5>Events <span class="rd-tag">sample data</span></h5><div id="rd-events" class="rd-list"></div></div>
   </div>
   <div class="rd-foot">PowerFactory twin → ESP32 / RS-485 → Advantech ECU-1251D → WISE-IoT</div>
 </div>
@@ -393,6 +416,7 @@
 
   // ---------- data ----------
   const D = window.RD99 = window.RD99 || { load: null, pv: null, grid: null, bess: null, soc: null, link: null, target: null, mode: null, ai: null, today: {} };
+  const SAMPLE_MODE = () => root.classList.contains('sample');
   const fmt = v => v == null || isNaN(v) ? '—' : Math.round(v).toLocaleString('en-US');
   const $ = k => root.querySelector(`[data-v="${k}"]`);
   const set = (k, t) => { const e = $(k); if (e) e.textContent = t; };
@@ -402,7 +426,7 @@
     const st = D.bess == null ? 'standby' : D.bess > 5 ? 'discharging' : D.bess < -5 ? 'charging' : 'idle';
     set('bessState', 'BESS · ' + st);
     const pill = root.querySelector('.rd-pill'); pill.className = 'rd-pill ' + (D.link === 1 ? 'ok' : D.link === 0 ? 'bad' : '');
-    set('link', D.link === 1 ? 'ECU online' : D.link === 0 ? 'Comm loss' : 'No data');
+    set('link', SAMPLE_MODE() ? 'Sample data' : D.link === 1 ? 'ECU online' : D.link === 0 ? 'Comm loss' : 'No data');
     if (D.mode) set('mode', D.mode);
     // energy balance
     set('eqGrid', fmt(D.grid)); set('eqPv', fmt(D.pv)); set('eqBess', fmt(D.bess)); set('eqLoad', fmt(D.load));
@@ -426,9 +450,61 @@
     flows[0].on = (D.pv || 0) > 1; flows[1].on = Math.abs(D.bess || 0) > 5; flows[1].dir = (D.bess || 0) >= 0 ? 1 : -1; flows[2].on = (D.grid || 0) > 1;
     if (D.pv == null && D.grid == null) flows.forEach(f => f.on = true);
   };
-  if (/[?&]demo=1/.test(location.search)) Object.assign(D, { load: 4397, pv: 610, grid: 3400, bess: 387, soc: 64, link: 1, target: 3400, mode: 'AI auto',
-    ai: { cmd: 'Discharge BESS 387 kW', why: 'Load is 997 kW above the 3,400 kW grid target; solar covers 610 kW, BESS covers the rest.', meta: 'Decided in 0.07 s · SEQ 1284', time: '14:05:12' },
-    today: { shaved: 1020, pvE: 3850, saved: 18400 } });
+  // ---------- sample mode until the live WISE-IoT feed is wired ----------
+  const SAMPLE = !/[?&]live=1/.test(location.search);
+  if (SAMPLE) {
+    root.classList.add('sample');
+    Object.assign(D, { load: 4397, pv: 610, grid: 3400, bess: 387, soc: 90, link: 1, target: 3400, mode: 'AI auto',
+      ai: { cmd: 'Discharge BESS 387 kW', why: 'Load is 997 kW above the 3,400 kW grid target; solar covers 610 kW, BESS covers the rest.', meta: 'Decided in 0.07 s · SEQ 1284', time: '14:05' },
+      today: { shaved: 1020, pvE: 3850, saved: 18400 } });
+    // 24 h synthetic day, 15-min steps, up to 14:05
+    const N = 96, nowIdx = 56, T = 3400, cap = 4000, S = [];
+    let soc = 46;
+    for (let i = 0; i < N; i++) {
+      const h = i / 4;
+      const load = 3050 + 1250 * Math.exp(-((h - 14.5) ** 2) / 14) + 260 * Math.exp(-((h - 10) ** 2) / 5) + 30 * Math.sin(i * 0.9);
+      const pv = h > 6 && h < 18.5 ? 900 * Math.sin(Math.PI * (h - 6) / 12.5) ** 1.4 : 0;
+      let net = load - pv, bess = 0;
+      if (net > T && soc > 12) bess = Math.min(net - T, 1200);
+      else if (net < T - 150 && soc < 92) bess = -Math.min(T - 150 - net, 500);
+      soc = Math.max(10, Math.min(95, soc - bess * 0.25 / cap * 100));
+      S.push({ h, load, pv, bess, grid: net - bess, soc });
+    }
+    const draw = (svg, W0, H, series, opts) => {
+      const W = Math.max(300, Math.round(svg.getBoundingClientRect().width) || W0); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+      const ns = 'http://www.w3.org/2000/svg', el = (t, a) => { const e = document.createElementNS(ns, t); for (const k in a) e.setAttribute(k, a[k]); svg.appendChild(e); return e; };
+      const x = i => 34 + i / (N - 1) * (W - 44), y = v => H - 18 - (v - opts.min) / (opts.max - opts.min) * (H - 30);
+      for (const g of opts.grid) { el('line', { x1: 34, x2: W - 10, y1: y(g), y2: y(g), stroke: '#2f353e', 'stroke-width': 1 }); el('text', { x: 28, y: y(g) + 3, fill: '#6f7a86', 'font-size': 9, 'text-anchor': 'end' }).textContent = opts.fmt(g); }
+      for (const hh of [0, 6, 12, 18, 24]) el('text', { x: x(Math.min(N - 1, hh * 4)), y: H - 4, fill: '#6f7a86', 'font-size': 9, 'text-anchor': hh === 24 ? 'end' : hh === 0 ? 'start' : 'middle' }).textContent = String(hh).padStart(2, '0') + ':00';
+      el('line', { x1: x(nowIdx), x2: x(nowIdx), y1: 8, y2: H - 18, stroke: '#4dd0e1', 'stroke-width': 1, 'stroke-dasharray': '2 3', opacity: .7 });
+      series.forEach(s => {
+        const pts = S.slice(0, nowIdx + 1).map((d, i) => [x(i), y(s.f(d))]);
+        if (s.area) { const base = S.slice(0, nowIdx + 1).map((d, i) => [x(i), y(s.base(d))]).reverse(); el('path', { d: 'M' + pts.concat(base).map(p => p.join(',')).join('L') + 'Z', fill: s.c, opacity: .28 }); }
+        else el('path', { d: 'M' + pts.map(p => p.join(',')).join('L'), fill: 'none', stroke: s.c, 'stroke-width': s.w || 1.8, 'stroke-dasharray': s.dash || '', 'stroke-linejoin': 'round' });
+      });
+    };
+    draw(root.querySelector('#rd-chart'), 640, 230, [
+      { area: true, c: '#5aa9f5', f: d => d.grid + Math.max(0, d.bess), base: d => d.grid },
+      { c: '#e6ebf0', f: d => d.load },
+      { c: '#f2b84b', f: d => d.grid, w: 2.2 },
+      { c: '#5fd3a0', f: d => d.pv },
+      { c: '#f2b84b', f: () => T, dash: '5 4', w: 1.2 },
+    ], { min: 0, max: 4800, grid: [0, 1200, 2400, 3600, 4800], fmt: v => (v / 1000) + 'k' });
+    draw(root.querySelector('#rd-soc'), 640, 110, [{ c: '#5aa9f5', f: d => d.soc, w: 2 }], { min: 0, max: 100, grid: [0, 50, 100], fmt: v => v + '%' });
+    const row = (t, c, b, s) => `<div class="rd-row" style="--c:${c}"><time>${t}</time><i class="d"></i><div><b>${b}</b><small>${s}</small></div></div>`;
+    root.querySelector('#rd-ailog').innerHTML = [
+      row('14:05', '#5aa9f5', 'Discharge 387 kW', 'Grid held at the 3,400 kW target · SOC 90%'),
+      row('13:50', '#5aa9f5', 'Discharge 120 kW', 'Load rising past target as solar fades'),
+      row('08:30', '#8f9aa6', 'Idle', 'BESS full (92%); solar + grid cover load'),
+      row('00:15', '#5fd3a0', 'Charge 300 kW', 'Night load low, refill before the afternoon peak'),
+    ].join('');
+    root.querySelector('#rd-events').innerHTML = [
+      row('13:48', '#f2b84b', 'Grid reached peak target', 'AI started BESS discharge to hold 3,400 kW'),
+      row('09:41', '#e5534b', 'Comm loss 2 intervals', 'Fail-safe 0 kW, link restored automatically'),
+      row('06:00', '#5fd3a0', 'Solar online', 'PV output above 50 kW'),
+    ].join('');
+    root.querySelector('[data-v="link"]').dataset.sample = '1';
+  }
   window.RD99_paint = paint; paint();
 
   // ---------- loop ----------
